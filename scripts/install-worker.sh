@@ -120,22 +120,23 @@ sudo mv $WORKING_DIR/iptables-restore.service /etc/eks/iptables-restore.service
 ### awscli #####################################################
 ################################################################################
 
+### CLI gets ignored since we install it with ImageManager
 ### isolated regions can't communicate to awscli.amazonaws.com so installing awscli through yum
-ISOLATED_REGIONS=(us-iso-east-1 us-iso-west-1 us-isob-east-1)
-if ! [[ " ${ISOLATED_REGIONS[*]} " =~ " ${BINARY_BUCKET_REGION} " ]]; then
-  # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-  echo "Installing awscli v2 bundle"
-  AWSCLI_DIR="${WORKING_DIR}/awscli-install"
-  mkdir "${AWSCLI_DIR}"
-  curl \
-    --silent \
-    --show-error \
-    --retry 10 \
-    --retry-delay 1 \
-    -L "https://awscli.amazonaws.com/awscli-exe-linux-${MACHINE}.zip" -o "${AWSCLI_DIR}/awscliv2.zip"
-  unzip -q "${AWSCLI_DIR}/awscliv2.zip" -d ${AWSCLI_DIR}
-  sudo "${AWSCLI_DIR}/aws/install" --bin-dir /bin/ --update
-fi
+# ISOLATED_REGIONS=(us-iso-east-1 us-iso-west-1 us-isob-east-1)
+# if ! [[ " ${ISOLATED_REGIONS[*]} " =~ " ${BINARY_BUCKET_REGION} " ]]; then
+#   # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+#   echo "Installing awscli v2 bundle"
+#   AWSCLI_DIR="${WORKING_DIR}/awscli-install"
+#   mkdir "${AWSCLI_DIR}"
+#   curl \
+#     --silent \
+#     --show-error \
+#     --retry 10 \
+#     --retry-delay 1 \
+#     -L "https://awscli.amazonaws.com/awscli-exe-linux-${MACHINE}.zip" -o "${AWSCLI_DIR}/awscliv2.zip"
+#   unzip -q "${AWSCLI_DIR}/awscliv2.zip" -d ${AWSCLI_DIR}
+#   sudo "${AWSCLI_DIR}/aws/install" --bin-dir /bin/ --update
+# fi
 
 ################################################################################
 ### systemd ####################################################################
@@ -258,6 +259,7 @@ BINARIES=(
   kubelet
   aws-iam-authenticator
 )
+# TODO: Force S3 Usage
 for binary in ${BINARIES[*]}; do
   if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ]; then
     echo "AWS cli present - using it to copy binaries from s3."
@@ -286,6 +288,7 @@ fi
 # Since CNI 0.7.0, all releases are done in the plugins repo.
 CNI_PLUGIN_FILENAME="cni-plugins-linux-${ARCH}-${CNI_PLUGIN_VERSION}"
 
+# TODO: Make this permenantly false
 if [ "$PULL_CNI_FROM_GITHUB" = "true" ]; then
   echo "Downloading CNI plugins from Github"
   sudo wget "https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGIN_VERSION}/${CNI_PLUGIN_FILENAME}.tgz" -q
@@ -293,6 +296,7 @@ if [ "$PULL_CNI_FROM_GITHUB" = "true" ]; then
   sudo sha512sum -c "${CNI_PLUGIN_FILENAME}.tgz.sha512"
   sudo rm "${CNI_PLUGIN_FILENAME}.tgz.sha512"
 else
+  # TODO: Force S3 Usage
   if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ]; then
     echo "AWS cli present - using it to copy binaries from s3."
     aws s3 cp --region $BINARY_BUCKET_REGION $S3_PATH/${CNI_PLUGIN_FILENAME}.tgz .
@@ -354,6 +358,7 @@ sudo chmod +x /etc/eks/max-pods-calculator.sh
 ################################################################################
 ### ECR CREDENTIAL PROVIDER ####################################################
 ################################################################################
+# TODO: Force S3 Usage
 ECR_CREDENTIAL_PROVIDER_BINARY="ecr-credential-provider"
 if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ]; then
   echo "AWS cli present - using it to copy ${ECR_CREDENTIAL_PROVIDER_BINARY} from s3."
@@ -522,7 +527,8 @@ echo vm.max_map_count=524288 | sudo tee -a /etc/sysctl.conf
 ### adding log-collector-script ################################################
 ################################################################################
 sudo mkdir -p /etc/eks/log-collector-script/
-sudo cp $WORKING_DIR/log-collector-script/eks-log-collector.sh /etc/eks/log-collector-script/
+# TODO: Find a more elegant solution to this
+sudo cp $WORKING_DIR/../log-collector-script/linux/eks-log-collector.sh /etc/eks/log-collector-script/
 
 ################################################################################
 ### Remove Yum Update from cloud-init config ###################################
