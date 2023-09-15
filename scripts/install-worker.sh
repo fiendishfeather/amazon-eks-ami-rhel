@@ -486,10 +486,11 @@ fi
 ### SSM Agent ##################################################################
 ################################################################################
 
-echo "Installing amazon-ssm-agent"
-sudo yum install -y https://s3.${BINARY_BUCKET_REGION}.${S3_DOMAIN}/amazon-ssm-${BINARY_BUCKET_REGION}/${SSM_AGENT_VERSION}/linux_${ARCH}/amazon-ssm-agent.rpm
-sudo systemctl enable amazon-ssm-agent
-sudo systemctl start amazon-ssm-agent
+### SSM Agent gets ignored since we install it with ImageManager
+# echo "Installing amazon-ssm-agent"
+# sudo yum install -y https://s3.${BINARY_BUCKET_REGION}.${S3_DOMAIN}/amazon-ssm-${BINARY_BUCKET_REGION}/${SSM_AGENT_VERSION}/linux_${ARCH}/amazon-ssm-agent.rpm
+# sudo systemctl enable amazon-ssm-agent
+# sudo systemctl start amazon-ssm-agent
 
 ################################################################################
 ### AMI Metadata ###############################################################
