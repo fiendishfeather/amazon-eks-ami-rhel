@@ -38,7 +38,10 @@ validate_env_set PULL_CNI_FROM_GITHUB
 validate_env_set PAUSE_CONTAINER_VERSION
 validate_env_set CACHE_CONTAINER_IMAGES
 validate_env_set WORKING_DIR
+validate_env_set INSTALL_SSM_AGENT
 validate_env_set SSM_AGENT_VERSION
+validate_env_set INSTALL_AWSCLI
+validate_env_set INSTALL_CLOUDFORMATION_HELPER
 
 ################################################################################
 ### Machine Architecture #######################################################
@@ -78,14 +81,16 @@ sudo yum install -y \
   yum-plugin-versionlock
 
 # Install Cloudformation helper
-sudo mkdir -p /opt/aws/bin
-#cd /opt/aws/bin
-sudo wget https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz -q
-#sudo python3 -m easy_install --script-dir /opt/aws/bin aws-cfn-bootstrap-py3-latest.tar.gz
-tar xvf aws-cfn-bootstrap-py3-latest.tar.gz
-cd aws-cfn-bootstrap-2.0
-sudo python3 setup.py build
-sudo python3 setup.py install --install-scripts /opt/aws/bin
+if [ "$INSTALL_CLOUDFORMATION_HELPER" = "true" ]; then
+  sudo mkdir -p /opt/aws/bin
+  #cd /opt/aws/bin
+  sudo wget https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz -q
+  #sudo python3 -m easy_install --script-dir /opt/aws/bin aws-cfn-bootstrap-py3-latest.tar.gz
+  tar xvf aws-cfn-bootstrap-py3-latest.tar.gz
+  cd aws-cfn-bootstrap-2.0
+  sudo python3 setup.py build
+  sudo python3 setup.py install --install-scripts /opt/aws/bin
+fi
 
 # Remove any old kernel versions. `--count=1` here means "only leave 1 kernel version installed"
 sudo dnf remove --oldinstallonly --setopt installonly_limit=2 -y || true
@@ -117,26 +122,28 @@ sudo systemctl restart sshd.service
 sudo mv $WORKING_DIR/iptables-restore.service /etc/eks/iptables-restore.service
 
 ################################################################################
-### awscli #####################################################
+### awscli #####################################################################
 ################################################################################
 
 ### CLI gets ignored since we install it with ImageManager
 ### isolated regions can't communicate to awscli.amazonaws.com so installing awscli through yum
-# ISOLATED_REGIONS=(us-iso-east-1 us-iso-west-1 us-isob-east-1)
-# if ! [[ " ${ISOLATED_REGIONS[*]} " =~ " ${BINARY_BUCKET_REGION} " ]]; then
-#   # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
-#   echo "Installing awscli v2 bundle"
-#   AWSCLI_DIR="${WORKING_DIR}/awscli-install"
-#   mkdir "${AWSCLI_DIR}"
-#   curl \
-#     --silent \
-#     --show-error \
-#     --retry 10 \
-#     --retry-delay 1 \
-#     -L "https://awscli.amazonaws.com/awscli-exe-linux-${MACHINE}.zip" -o "${AWSCLI_DIR}/awscliv2.zip"
-#   unzip -q "${AWSCLI_DIR}/awscliv2.zip" -d ${AWSCLI_DIR}
-#   sudo "${AWSCLI_DIR}/aws/install" --bin-dir /bin/ --update
-# fi
+if [ "$INSTALL_AWSCLI" = "true" ]; then
+  ISOLATED_REGIONS=(us-iso-east-1 us-iso-west-1 us-isob-east-1)
+  if ! [[ " ${ISOLATED_REGIONS[*]} " =~ " ${BINARY_BUCKET_REGION} " ]]; then
+    # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+    echo "Installing awscli v2 bundle"
+    AWSCLI_DIR="${WORKING_DIR}/awscli-install"
+    mkdir "${AWSCLI_DIR}"
+    curl \
+      --silent \
+      --show-error \
+      --retry 10 \
+      --retry-delay 1 \
+      -L "https://awscli.amazonaws.com/awscli-exe-linux-${MACHINE}.zip" -o "${AWSCLI_DIR}/awscliv2.zip"
+    unzip -q "${AWSCLI_DIR}/awscliv2.zip" -d ${AWSCLI_DIR}
+    sudo "${AWSCLI_DIR}/aws/install" --bin-dir /bin/ --update
+  fi
+fi
 
 ################################################################################
 ### systemd ####################################################################
@@ -358,7 +365,7 @@ sudo chmod +x /etc/eks/max-pods-calculator.sh
 ################################################################################
 ### ECR CREDENTIAL PROVIDER ####################################################
 ################################################################################
-# TODO: Force S3 Usage
+
 ECR_CREDENTIAL_PROVIDER_BINARY="ecr-credential-provider"
 if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ]; then
   echo "AWS cli present - using it to copy ${ECR_CREDENTIAL_PROVIDER_BINARY} from s3."
@@ -486,11 +493,13 @@ fi
 ### SSM Agent ##################################################################
 ################################################################################
 
-### SSM Agent gets ignored since we install it with ImageManager
-# echo "Installing amazon-ssm-agent"
-# sudo yum install -y https://s3.${BINARY_BUCKET_REGION}.${S3_DOMAIN}/amazon-ssm-${BINARY_BUCKET_REGION}/${SSM_AGENT_VERSION}/linux_${ARCH}/amazon-ssm-agent.rpm
-# sudo systemctl enable amazon-ssm-agent
-# sudo systemctl start amazon-ssm-agent
+### Set a check here so it can be disabled easily from ImageBuilder
+if [ "$INSTALL_SSM_AGENT" = "true" ]; then
+  echo "Installing amazon-ssm-agent"
+  sudo yum install -y https://s3.${BINARY_BUCKET_REGION}.${S3_DOMAIN}/amazon-ssm-${BINARY_BUCKET_REGION}/${SSM_AGENT_VERSION}/linux_${ARCH}/amazon-ssm-agent.rpm
+  sudo systemctl enable amazon-ssm-agent
+  sudo systemctl start amazon-ssm-agent
+fi
 
 ################################################################################
 ### AMI Metadata ###############################################################
