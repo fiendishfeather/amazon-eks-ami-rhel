@@ -28,6 +28,7 @@ validate_env_set() {
 
 validate_env_set BINARY_BUCKET_NAME
 validate_env_set BINARY_BUCKET_REGION
+validate_env_set S3_INSTANCE_ROLE
 validate_env_set DOCKER_VERSION
 validate_env_set CONTAINERD_VERSION
 validate_env_set RUNC_VERSION
@@ -82,6 +83,7 @@ sudo yum install -y \
 
 # Install Cloudformation helper
 if [ "$INSTALL_CLOUDFORMATION_HELPER" = "true" ]; then
+  echo "Installing CloudFormation Helper"
   sudo mkdir -p /opt/aws/bin
   #cd /opt/aws/bin
   sudo wget https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz -q
@@ -210,6 +212,7 @@ else
 fi
 
 if [[ "$INSTALL_DOCKER" == "true" ]]; then
+  echo "Installing Docker"
   sudo groupadd -og 1950 docker
   sudo useradd --gid $(getent group docker | cut -d: -f3) docker
 
@@ -266,9 +269,9 @@ BINARIES=(
   kubelet
   aws-iam-authenticator
 )
-# TODO: Force S3 Usage
+
 for binary in ${BINARIES[*]}; do
-  if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ]; then
+  if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ] || [ $S3_INSTANCE_ROLE = "true" ]; then
     echo "AWS cli present - using it to copy binaries from s3."
     aws s3 cp --region $BINARY_BUCKET_REGION $S3_PATH/$binary .
     aws s3 cp --region $BINARY_BUCKET_REGION $S3_PATH/$binary.sha256 .
@@ -295,7 +298,6 @@ fi
 # Since CNI 0.7.0, all releases are done in the plugins repo.
 CNI_PLUGIN_FILENAME="cni-plugins-linux-${ARCH}-${CNI_PLUGIN_VERSION}"
 
-# TODO: Make this permenantly false
 if [ "$PULL_CNI_FROM_GITHUB" = "true" ]; then
   echo "Downloading CNI plugins from Github"
   sudo wget "https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGIN_VERSION}/${CNI_PLUGIN_FILENAME}.tgz" -q
@@ -303,8 +305,7 @@ if [ "$PULL_CNI_FROM_GITHUB" = "true" ]; then
   sudo sha512sum -c "${CNI_PLUGIN_FILENAME}.tgz.sha512"
   sudo rm "${CNI_PLUGIN_FILENAME}.tgz.sha512"
 else
-  # TODO: Force S3 Usage
-  if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ]; then
+  if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ] || [ $S3_INSTANCE_ROLE = "true" ]; then
     echo "AWS cli present - using it to copy binaries from s3."
     aws s3 cp --region $BINARY_BUCKET_REGION $S3_PATH/${CNI_PLUGIN_FILENAME}.tgz .
     aws s3 cp --region $BINARY_BUCKET_REGION $S3_PATH/${CNI_PLUGIN_FILENAME}.tgz.sha256 .
@@ -367,7 +368,7 @@ sudo chmod +x /etc/eks/max-pods-calculator.sh
 ################################################################################
 
 ECR_CREDENTIAL_PROVIDER_BINARY="ecr-credential-provider"
-if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ]; then
+if [ -n "$AWS_ACCESS_KEY_ID" ] || [ $BINARY_BUCKET_NAME != "amazon-eks" ] || [ $S3_INSTANCE_ROLE = "true" ]; then
   echo "AWS cli present - using it to copy ${ECR_CREDENTIAL_PROVIDER_BINARY} from s3."
   aws s3 cp --region $BINARY_BUCKET_REGION $S3_PATH/$ECR_CREDENTIAL_PROVIDER_BINARY .
 else
